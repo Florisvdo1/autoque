@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Player with AutoCue</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        #cue {
+            font-size: 1.5em;
+            margin: 30px 0;
+            padding: 20px;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        button, input[type="file"], textarea {
+            font-size: 1em;
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .upload { background-color: #FFA500; color: white; }
+        .play { background-color: #4CAF50; color: white; }
+        .pause { background-color: #f44336; color: white; }
+        textarea {
+            width: 80%;
+            height: 100px;
+            resize: none;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Audio Player with AutoCue</h1>
+
+    <!-- Song Text Input -->
+    <h2>Enter Song Lyrics</h2>
+    <textarea id="songText" placeholder="Enter your song lyrics, one line per row..."></textarea>
+    <br>
+    <button id="loadLyrics" class="play">Load Lyrics</button>
+
+    <!-- Song Text Display -->
+    <div id="cue">Enter lyrics and click 'Load Lyrics' to begin AutoCue.</div>
+    <button id="start" class="play" disabled>Start AutoCue</button>
+    <button id="stop" class="pause" disabled>Pause AutoCue</button>
+    <button id="resume" class="play" disabled>Resume AutoCue</button>
+
+    <!-- Audio Upload and Playback -->
+    <h2>Upload Audio File</h2>
+    <input type="file" id="fileUpload" accept="audio/*" class="upload">
+    <br>
+    <button id="playAudio" class="play" disabled>Play Audio</button>
+    <button id="pauseAudio" class="pause" disabled>Pause Audio</button>
+    <audio id="audioPlayer" controls style="display: none;"></audio>
+
+    <script>
+        // Global Variables
+        let lyrics = [];
+        let currentLine = 0;
+        let intervalId = null;
+        const bpm = 80; // AutoCue beats per minute
+        const msPerLine = (60 / bpm) * 1000; // Time in milliseconds per line
+
+        // UI Elements
+        const songTextInput = document.getElementById("songText");
+        const loadLyricsButton = document.getElementById("loadLyrics");
+        const cueElement = document.getElementById("cue");
+        const startButton = document.getElementById("start");
+        const stopButton = document.getElementById("stop");
+        const resumeButton = document.getElementById("resume");
+
+        const fileUpload = document.getElementById("fileUpload");
+        const playAudio = document.getElementById("playAudio");
+        const pauseAudio = document.getElementById("pauseAudio");
+        const audioPlayer = document.getElementById("audioPlayer");
+
+        // Load Lyrics
+        loadLyricsButton.addEventListener("click", () => {
+            const inputText = songTextInput.value.trim();
+            if (!inputText) {
+                alert("Please enter song lyrics before loading.");
+                return;
+            }
+
+            lyrics = inputText.split("\n");
+            cueElement.textContent = "Lyrics loaded! Click 'Start AutoCue' to begin.";
+            startButton.disabled = false;
+            currentLine = 0; // Reset cue
+        });
+
+        // Start AutoCue
+        startButton.addEventListener("click", () => {
+            if (!lyrics.length) {
+                alert("No lyrics loaded. Please load lyrics first.");
+                return;
+            }
+            currentLine = 0;
+            intervalId = setInterval(displayNextLine, msPerLine);
+            startButton.disabled = true;
+            stopButton.disabled = false;
+        });
+
+        // Pause AutoCue
+        stopButton.addEventListener("click", () => {
+            clearInterval(intervalId);
+            stopButton.disabled = true;
+            resumeButton.disabled = false;
+        });
+
+        // Resume AutoCue
+        resumeButton.addEventListener("click", () => {
+            intervalId = setInterval(displayNextLine, msPerLine);
+            resumeButton.disabled = true;
+            stopButton.disabled = false;
+        });
+
+        // Display next line of lyrics
+        function displayNextLine() {
+            if (currentLine >= lyrics.length) {
+                clearInterval(intervalId);
+                cueElement.textContent = "End of lyrics.";
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                resumeButton.disabled = true;
+                return;
+            }
+            cueElement.textContent = lyrics[currentLine];
+            currentLine++;
+        }
+
+        // Audio Upload and Validation
+        fileUpload.addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                alert("Please upload a valid audio file.");
+                return;
+            }
+
+            const validMimeTypes = [
+                "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", 
+                "audio/x-wav", "audio/x-m4a", "audio/flac", "audio/aac"
+            ];
+            if (!validMimeTypes.includes(file.type)) {
+                alert("Unsupported audio file format. Please upload a valid file.");
+                fileUpload.value = "";
+                return;
+            }
+
+            try {
+                const objectURL = URL.createObjectURL(file);
+                audioPlayer.src = objectURL;
+                await audioPlayer.play(); // Preload audio
+                audioPlayer.pause(); // Immediately pause after preloading
+
+                alert(`Audio file loaded successfully! Format: ${file.type}`);
+                playAudio.disabled = false;
+                pauseAudio.disabled = false;
+            } catch (error) {
+                console.error("Error loading audio:", error);
+                alert("The file could not be loaded. Please try another audio file.");
+                fileUpload.value = "";
+            }
+        });
+
+        // Play Audio
+        playAudio.addEventListener("click", () => {
+            audioPlayer.play();
+        });
+
+        // Pause Audio
+        pauseAudio.addEventListener("click", () => {
+            audioPlayer.pause();
+        });
+    </script>
+</body>
+</html>
